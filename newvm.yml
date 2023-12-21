@@ -1,0 +1,52 @@
+---
+- name: start VM 
+  hosts: localhost
+  vars_files: vars.yml
+  become: false
+  gather_facts: false
+  collections:
+    - community.vmware
+  tasks:
+  - name: deploy VM
+    vmware_guest: 
+      hostname: "{{ vcenter_hostname }}"
+      username: "{{ vcenter_username }}"
+      password: "{{ vcenter_password }}"
+      validate_certs: False
+      datacenter: Datacenter
+      datastore: datastore_6TB
+      folder: centos
+      template: t_centos8_mac
+      name: centos8-sys
+      hardware:
+        nested_virt: true
+        memory_mb: 2048
+      networks:
+        - name: VMs11
+          ip: "10.100.11.104"
+          netmask: "255.255.255.0"
+          gateway: "10.100.11.254"
+      customization:
+        hostname: "centos-sys"
+        dns_servers: [10.100.11.200]
+      state: powered-on
+      wait_for_ip_address: true
+    register: deploy
+    delegate_to: localhost
+    tags:
+    - install
+- name: VM configuration
+  hosts: centos8sys
+  become: true 
+  gather_facts: false
+  tasks:
+  - name: disable selinux, firewalld
+    shell: "{{item}}"
+    with_items:
+      - setenforce 0
+      - sed -i 's/^SELINUX=.*/SELINUX=disabled/g' /etc/selinux/config
+      - systemctl stop firewalld
+      - systemctl disable firewalld
+  tags:
+  - configuration
+ 
